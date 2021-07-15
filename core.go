@@ -57,10 +57,9 @@ func (b *BaseResponsePool) FreeRes(res *Response) {
 }
 
 type service struct {
-	name     string
-	method   reflect.Method
-	callable reflect.Value
-	typ      reflect.Type
-	argTyp   reflect.Type
-	resTyp   reflect.Type
+	name       string
+	method     reflect.Value
+	methodType reflect.Type
+	argType    reflect.Type
+	resType    reflect.Type
 }

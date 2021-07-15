@@ -2,16 +2,22 @@ package rpc
 
 import "testing"
 
-type A struct {
-
+func EM(a int, b int) error {
+	return nil
 }
 
-func (a *A) ExampleM()  {
-
+func B(a int, b *int) error {
+	*b = a + *b
+	return nil
 }
+
 func TestServer_Register(t *testing.T) {
-	a := A{}
 	server := Server{}
-	err := server.Register(a.ExampleM, "")
-	println(err.Error())
+	err := server.Register("111", EM)
+	if err != nil {
+		panic(err)
+	}
+}
+func TestServer_Register2(t *testing.T) {
+
 }
