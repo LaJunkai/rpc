@@ -1,6 +1,11 @@
 package rpc
 
-import "reflect"
+import (
+	"bufio"
+	"encoding/gob"
+	"io"
+	"reflect"
+)
 
 var ReqPool RequestPool
 var ResPool ResponsePool
@@ -11,16 +16,16 @@ func init() {
 }
 
 type Request struct {
-	seq int
+	Seq         int
 	ServiceName string
-	next *Request
+	next        *Request
 }
 
 type Response struct {
-	seq int
+	Seq         int
 	ServiceName string
-	next *Request
-	error string
+	next        *Request
+	Error       string
 }
 
 type RequestPool interface {
@@ -61,5 +66,19 @@ type service struct {
 	method     reflect.Value
 	methodType reflect.Type
 	argType    reflect.Type
-	resType    reflect.Type
+	replyType  reflect.Type
+}
+
+type CodeC struct {
+	conn    io.ReadWriteCloser
+	dec    *gob.Decoder
+	enc    *gob.Encoder
+	encBuf *bufio.Writer
+	closed bool
+}
+
+func Assert(b bool) {
+	if !b {
+		panic("the assert is not true")
+	}
 }

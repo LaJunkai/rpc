@@ -3,6 +3,8 @@ package rpc
 import (
 	"bufio"
 	"encoding/gob"
+	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync"
@@ -10,7 +12,7 @@ import (
 
 type Pending struct {
 	doneC chan bool
-	res interface{}
+	Reply interface{}
 }
 
 type Client struct {
@@ -18,56 +20,71 @@ type Client struct {
 	pendingMap sync.Map //map[int]Pending
 	enc *gob.Encoder
 	dec *gob.Decoder
+	encBuf *bufio.Writer
 	sending sync.Mutex
 	reading sync.Mutex
 	seq int
 }
 
+
 func (c *Client) readRes() {
 	for {
 		res := ResPool.GetRes()
 		err := c.dec.Decode(res)
+		fmt.Println(1, res)
 		if err != nil {
-			log.Fatal(err.Error())
+			log.Println("decode response error:", err.Error())
+			if err == io.EOF {
+				break
+			}
 			continue
 		}
-		v, ok := c.pendingMap.LoadAndDelete(res.seq)
+		v, ok := c.pendingMap.LoadAndDelete(res.Seq)
 		if !ok {
+			log.Println("pending task with seq of", res.Seq, "is not found.")
 			continue
 		}
-		v.(chan bool) <- true
+		err = c.dec.Decode(v.(*Pending).Reply)
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+		v.(*Pending).doneC <- true
 		ResPool.FreeRes(res)
 	}
 }
 
-func (c *Client) Dial(address string) error {
+func Dial(address string) (*Client, error) {
+	c := &Client{}
 	rAddr, err := net.ResolveTCPAddr("tcp4", address)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	c.conn, err = net.DialTCP("tcp", nil, rAddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	c.enc = gob.NewEncoder(c.conn)
-	c.dec = gob.NewDecoder(bufio.NewReader(c.conn))
+	bufWriter := bufio.NewWriter(c.conn)
+	c.encBuf = bufWriter
+	c.enc = gob.NewEncoder(bufWriter)
+	c.dec = gob.NewDecoder(c.conn)
 	go c.readRes()
-	return nil
+	return c, nil
 }
 
 func (c *Client) call(req *Request, arg interface{}, pending *Pending) error {
 	c.sending.Lock()
 	defer c.sending.Unlock()
 	c.seq += 1
-	req.seq = c.seq
+	req.Seq = c.seq
 	if err := c.enc.Encode(req); err != nil {
 		return err
 	}
 	if err := c.enc.Encode(arg); err != nil {
 		return err
 	}
-	c.pendingMap.Store(req.seq, pending)
-	return nil
+	c.pendingMap.Store(req.Seq, pending)
+	return c.encBuf.Flush()
 }
 
 func (c *Client) Call(serviceName string, arg interface{}, res interface{}) error {
@@ -76,7 +93,7 @@ func (c *Client) Call(serviceName string, arg interface{}, res interface{}) erro
 	req.ServiceName = serviceName
 	pending := &Pending{
 		doneC: make(chan bool),
-		res:   ResPool,
+		Reply: res,
 	}
 	err := c.call(req, arg, pending)
 	if err != nil {
