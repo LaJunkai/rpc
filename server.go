@@ -23,7 +23,7 @@ func NewServer() *Server {
 	return &Server{errorC: make(chan error, 8)}
 }
 
-func (s *Server) Register(name string, method interface{}) error {
+func (s *Server) RegisterName(name string, method interface{}) error {
 	srvc := &service{}
 	srvc.method = reflect.ValueOf(method)
 	srvc.methodType = reflect.TypeOf(method)

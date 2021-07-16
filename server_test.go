@@ -8,19 +8,22 @@ func EM(a int, b int) error {
 	return nil
 }
 
-func B(a int, b *int) error {
+type A struct {
+
+}
+func (st *A) B(a int, b *int) error {
 	*b = a + 1
 	return nil
 }
-
+var st = A{}
 func TestServer_Register(t *testing.T) {
 	server := NewServer()
-	err := server.Register("111", B)
+	err := server.RegisterName("111", st.B)
 	Assert(err != nil && err.Error() == "param int is not a pointer")
 }
 func TestServer_Run(t *testing.T) {
 	server := NewServer()
-	server.Register("111", B)
+	server.RegisterName("111", st.B)
 	server.Run(":9999")
 }
 
