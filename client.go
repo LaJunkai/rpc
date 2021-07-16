@@ -3,7 +3,6 @@ package rpc
 import (
 	"bufio"
 	"encoding/gob"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -31,7 +30,6 @@ func (c *Client) readRes() {
 	for {
 		res := ResPool.GetRes()
 		err := c.dec.Decode(res)
-		fmt.Println(1, res)
 		if err != nil {
 			log.Println("decode response error:", err.Error())
 			if err == io.EOF {
