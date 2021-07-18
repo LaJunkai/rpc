@@ -9,6 +9,10 @@ import (
 	"sync"
 )
 
+type Caller interface {
+	Call(serviceName string, arg interface{}, res interface{}) error
+}
+
 type Pending struct {
 	doneC chan bool
 	Reply interface{}
@@ -23,8 +27,57 @@ type Client struct {
 	sending sync.Mutex
 	reading sync.Mutex
 	seq int
+	next *Client
 }
 
+type ClientPool struct {
+	nClients int
+	Cursor *Client
+	clientLock sync.Mutex
+}
+
+func (cp *ClientPool) GetClient() *Client {
+	cp.clientLock.Lock()
+	defer func() {
+		cp.Cursor = cp.Cursor.next
+		cp.clientLock.Unlock()
+	}()
+	return cp.Cursor
+}
+
+func (cp *ClientPool) addClient(c *Client) {
+	cp.clientLock.Lock()
+	cp.clientLock.Unlock()
+	if cp.Cursor == nil {
+		cp.Cursor = c
+		cp.nClients = 1
+		cp.Cursor.next = cp.Cursor
+	} else {
+		cp.Cursor.next,c.next = c, cp.Cursor.next
+		cp.nClients += 1
+	}
+}
+
+func (cp *ClientPool) deleteClient(c *Client) *Client {
+	return nil
+}
+
+func (cp *ClientPool) Call(serviceName string, arg interface{}, res interface{}) error {
+	var c Caller = cp.GetClient()
+	return c.Call(serviceName, arg, res)
+}
+
+func DialMany(addressList []string) (Caller, error) {
+	newPool := &ClientPool{}
+	for _, address := range addressList {
+		c, err := Dial(address)
+		if err != nil {
+			return nil, err
+		}
+		newPool.addClient(c)
+	}
+	return newPool, nil
+}
 
 func (c *Client) readRes() {
 	for {

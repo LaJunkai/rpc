@@ -82,7 +82,6 @@ func (s *Server) collectError(codec *CodeC, wg *sync.WaitGroup) {
 }
 
 func (s *Server) Run(address string) {
-	// 绑定监听地址
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Println(fmt.Sprintf("listen err: %v", err))
